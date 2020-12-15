@@ -2,6 +2,7 @@ adaptive-icon;obj\Debug\90\res\mipmap-anydpi-v26\ic_launcher.xml
 adaptive-icon;obj\Debug\90\res\mipmap-anydpi-v26\ic_launcher_round.xml
 background;obj\Debug\90\res\mipmap-anydpi-v26\ic_launcher.xml
 background;obj\Debug\90\res\mipmap-anydpi-v26\ic_launcher_round.xml
+Button;obj\Debug\90\res\layout\activity_main.xml
 cache-path;C:\Users\Sebhe\Documents\GitHub\CourseworkApp\CSC20038\obj\Debug\90\lp\35\jl\res\xml\xamarin_essentials_fileprovider_file_paths.xml
 color;obj\Debug\90\res\values\colors.xml
 color;obj\Debug\90\res\values\ic_launcher_background.xml
@@ -10,6 +11,7 @@ external-path;C:\Users\Sebhe\Documents\GitHub\CourseworkApp\CSC20038\obj\Debug\9
 foreground;obj\Debug\90\res\mipmap-anydpi-v26\ic_launcher.xml
 foreground;obj\Debug\90\res\mipmap-anydpi-v26\ic_launcher_round.xml
 item;obj\Debug\90\res\values\styles.xml
+ListView;obj\Debug\90\res\layout\activity_main.xml
 paths;C:\Users\Sebhe\Documents\GitHub\CourseworkApp\CSC20038\obj\Debug\90\lp\35\jl\res\xml\xamarin_essentials_fileprovider_file_paths.xml
 RelativeLayout;obj\Debug\90\res\layout\activity_main.xml
 resources;obj\Debug\90\res\values\colors.xml

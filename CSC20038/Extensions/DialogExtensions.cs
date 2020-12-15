@@ -17,23 +17,8 @@ namespace CSC20038.Extensions
         /// <param name="title">The title of the alert.</param>
         /// <param name="message">The message of the alert.</param>
         public static void ShowAlert(this AlertDialog.Builder builder,
-            string title = EMPTY_STRING,
-            string message = EMPTY_STRING,
-            params DialogButton[] dialogButtons)
+            string title = EMPTY_STRING, string message = EMPTY_STRING, DialogButton positiveButton = null)
         {
-            //Check how many buttons we've been supplied.
-            //If more than 3 have been supplied then too many exist.
-            if (dialogButtons.Length > 3)
-            {
-                throw new System.Exception("Too many buttons supplied. Maxmimum amount of buttons is 3.");
-            }
-
-            //Zero buttons is also incorrect we need at least one button.
-            else if (dialogButtons.Length <= 0)
-            {
-                throw new System.Exception("At least one button must be supplied.");
-            }
-
             //Create the new alert
             AlertDialog alert = builder.Create();
 
@@ -41,10 +26,10 @@ namespace CSC20038.Extensions
             alert.SetTitle(title);
             alert.SetMessage(message);
             
-            //Set the buttons
-            for (int i = 1; i <= dialogButtons.Length; i++)
+            //Set the button
+            if (positiveButton != null)
             {
-                alert.SetButton(i, dialogButtons[i - 1].Title, dialogButtons[i - 1].Action);
+                alert.SetButton(positiveButton.Title, positiveButton.Action);
             }
 
             //Show the alert.
