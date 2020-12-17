@@ -8,12 +8,10 @@ using Android.Content;
 using Android;
 using Android.Content.PM;
 using Android.Support.V4.Content;
-using CSC20038.Extensions;
-using AlertDialog = Android.App.AlertDialog;
 using CSC20038.Classes;
 using CSC20038.Handlers;
-using Android.Util;
 using System.Collections.Generic;
+using CSC20038.Adapters;
 
 namespace CSC20038
 {
@@ -31,6 +29,11 @@ namespace CSC20038
       private LocationProviderHandler locationProviderHandler;
 
       /// <summary>
+      /// The location database handler we'll use to store and retrieve locations.
+      /// </summary>
+      private LocationDatabaseHandler locationDatabaseHandler;
+
+      /// <summary>
       /// The current location of the user.
       /// </summary>
       private Location currentLocation;
@@ -43,12 +46,17 @@ namespace CSC20038
       /// <summary>
       /// The alert dialog builder.
       /// </summary>
-      private AlertDialog.Builder dialog;
+      private DialogHandler dialogHandler;
 
       /// <summary>
       /// The list view for the app.
       /// </summary>
-      private List<string> items;
+      private List<LocationModel> locationModels;
+
+      /// <summary>
+      /// The location list adapter.
+      /// </summary>
+      private LocationListAdapter locationListAdapter;
 
       /// <summary>
       /// The on create method.
@@ -65,14 +73,65 @@ namespace CSC20038
          //Set the context view to the main view.
          this.SetContentView(Resource.Layout.activity_main);
 
+         //Setup the permissions required for running.
+         this.SetupPermissions();
+
          //Create the alert builder.
-         this.dialog = new AlertDialog.Builder(this);
+         this.dialogHandler = new DialogHandler(this);
+
+         //Create the location database handler.
+         this.locationDatabaseHandler = new LocationDatabaseHandler();
 
          //Setup the location manager.
          this.SetupLocationManager();
 
          //Setup the buttons.
-         FindViewById<Button>(Resource.Id.addButton).Click += AddLocation;
+         this.SetupButtons();
+
+         //Setup the list view.
+         this.SetupListView();
+      }
+
+      /// <summary>
+      /// Setup the permissions for the application.
+      /// </summary>
+      private void SetupPermissions()
+      {
+         //We'll get the permissions by creating a permissions list and then asking for the permissions all at once.
+         var permissions = new List<string>();
+         //This works by checking to see if we have the permission we require.
+         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessFineLocation) != Permission.Granted)
+         {
+            //And if not we'll add it to the requests.
+            permissions.Add(Manifest.Permission.AccessFineLocation);
+         }
+         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessCoarseLocation) != Permission.Granted)
+         {
+            permissions.Add(Manifest.Permission.AccessCoarseLocation);
+         }
+         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.ReadExternalStorage) != Permission.Granted)
+         {
+            permissions.Add(Manifest.Permission.ReadExternalStorage);
+         }
+         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.WriteExternalStorage) != Permission.Granted)
+         {
+            permissions.Add(Manifest.Permission.WriteExternalStorage);
+         }
+         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessWifiState) != Permission.Granted)
+         {
+            permissions.Add(Manifest.Permission.AccessWifiState);
+         }
+         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessNetworkState) != Permission.Granted)
+         {
+            permissions.Add(Manifest.Permission.AccessNetworkState);
+         }
+
+         //If any permissions are required.
+         if (permissions.Count > 0)
+         {
+            //Then request the permissions.
+            this.RequestPermissions(permissions.ToArray(), 1);
+         }
       }
 
       /// <summary>
@@ -107,7 +166,7 @@ namespace CSC20038
          else
          {
             //Tell the user we don't have location permissions and need access.
-            this.dialog.ShowAlert(Resources.GetString(Resource.String.missing_location_permissions_title),
+            this.dialogHandler.ShowAlert(Resources.GetString(Resource.String.missing_location_permissions_title),
                 Resources.GetString(Resource.String.missing_location_permissions_message),
                 new DialogButton(Resources.GetString(Resource.String.close_button_title), CloseApp));
             ;
@@ -126,7 +185,7 @@ namespace CSC20038
          if (provider == null)
          {
             //Tell the user there's no providers available.
-            this.dialog.ShowAlert(Resources.GetString(Resource.String.no_location_provider_title),
+            this.dialogHandler.ShowAlert(Resources.GetString(Resource.String.no_location_provider_title),
                 Resources.GetString(Resource.String.no_location_provider_message),
                 new DialogButton(Resources.GetString(Resource.String.close_button_title), CloseApp));
          }
@@ -135,6 +194,54 @@ namespace CSC20038
             //Request location updates.
             this.locationManager.RequestLocationUpdates(provider, 1000, 1, this);
          }
+      }
+
+      /// <summary>
+      /// Setup the main list view for the main layout.
+      /// </summary>
+      private void SetupListView()
+      {
+         //Setup the list of location models.
+         this.locationModels = new List<LocationModel>();
+
+         //Reset the list
+         this.ResetList();
+
+         //Setup the location list adapter.
+         this.locationListAdapter = new LocationListAdapter(this, this.locationModels);
+
+         //Find the list view in the layout.
+         var listView = FindViewById<ListView>(Resource.Id.locationList);
+
+         //Add the new adapter.
+         listView.Adapter = this.locationListAdapter;
+
+         //Assign the Select Location method.
+         listView.ItemClick += SelectLocation;
+      }
+
+      private void ResetList()
+      {
+         //Clear the list
+         this.locationModels.Clear();
+
+         //Get all the stored models.
+         var storedModels = this.locationDatabaseHandler.GetAll();
+
+         //Loop through them and add them to the location models.
+         foreach (LocationModel locationModel in storedModels)
+         {
+            this.locationModels.Add(locationModel);
+         }
+      }
+
+      /// <summary>
+      /// Setup the buttons for the main layout.
+      /// </summary>
+      private void SetupButtons()
+      {
+         //Setup the buttons.
+         FindViewById<Button>(Resource.Id.addButton).Click += AddLocation;
       }
 
       /// <summary>
@@ -214,14 +321,95 @@ namespace CSC20038
       /// <summary>
       /// Add a new location to the list.
       /// </summary>
-      /// <param name="sender">Sender</param>
-      /// <param name="e">Event args</param>
+      /// <param name="sender">Sender.</param>
+      /// <param name="e">Event args.</param>
       private void AddLocation(object sender, System.EventArgs e)
       {
-         var locationModel = new LocationModel(currentLocation.Longitude,
-            currentLocation.Latitude,
-            currentLocation.Altitude);
-         items.Add(locationModel.ToString());
+         //Create a new location model with the title set to default and the longitude, latitude and altitude all set tot their respecitve values.
+         var locationModel = new LocationModel
+         {
+            Title = "New Location",
+            Longitude = currentLocation.Longitude,
+            Latitude = currentLocation.Latitude,
+            Altitude = currentLocation.Altitude
+         };
+         //Once we've created the item we'll open it for editing.
+         this.OpenEdit(locationModel);
+      }
+
+      /// <summary>
+      /// Select a location.
+      /// </summary>
+      /// <param name="sender">Sender.</param>
+      /// <param name="e">Event args.</param>
+      private void SelectLocation(object sender, AdapterView.ItemClickEventArgs e)
+      {
+         //Get the selected location model.
+         var locationModel = this.locationModels[e.Position];
+         //Open the settings for it.
+         this.OpenItemSettings(locationModel);
+      }
+
+      /// <summary>
+      /// Open the settings for the location model.
+      /// </summary>
+      /// <param name="locationModel">The location model to open.</param>
+      private void OpenItemSettings(LocationModel locationModel)
+      {
+         //Show the settings dialog.
+         //This dialog shows the selected item and offers, delete, edit and back options.
+         this.dialogHandler.ShowAlert("Settings",
+            locationModel.ToString(),
+            new DialogButton("Delete", (s, e) => DeleteLocationModel(locationModel)),
+            new DialogButton("Edit", (s, e) => OpenEdit(locationModel)),
+            new DialogButton("Back"));
+      }
+
+      /// <summary>
+      /// Open the edit layout.
+      /// </summary>
+      /// <param name="locationModel">The location model to edit.</param>
+      public void OpenEdit(LocationModel locationModel)
+      {
+         //Create a new intent for displaying.
+         Intent intent = new Intent(this, typeof(DisplayLocationActivity));
+         //Put the ID for the location as an extra.
+         intent.PutExtra("ID", locationModel.ID);
+         //Start the activity.
+         this.StartActivityForResult(intent, 0);
+      }
+
+      /// <summary>
+      /// Called when the result an activity has ended and returned a result.
+      /// </summary>
+      /// <param name="requestCode">The request code.</param>
+      /// <param name="resultCode">The result code.</param>
+      /// <param name="data">The intent data passed across.</param>
+      protected override void OnActivityResult(int requestCode, [GeneratedEnum] Result resultCode, Intent data)
+      {
+         //If we get request code 0.
+         if (requestCode == 0)
+         {
+            //Reset the list.
+            this.ResetList();
+            this.locationListAdapter.NotifyDataSetChanged();
+         }
+      }
+
+      /// <summary>
+      /// Delete a location model from the stored locations.
+      /// </summary>
+      /// <param name="locationModel">THe location model to delete.</param>
+      public void DeleteLocationModel(LocationModel locationModel)
+      {
+         //Check the location model still exists.
+         if (this.locationModels.Contains(locationModel))
+         {
+            //Delete it and reset the list.
+            this.locationDatabaseHandler.Delete(locationModel);
+            this.ResetList();
+            this.locationListAdapter.NotifyDataSetChanged();
+         }
       }
 
       /// <summary>

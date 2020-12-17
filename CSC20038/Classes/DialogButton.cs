@@ -3,21 +3,27 @@ using System;
 
 namespace CSC20038.Classes
 {
-    public class DialogButton
-    {
-        public string Title;
+   public class DialogButton
+   {
+      /// <summary>
+      /// The title of the button.
+      /// </summary>
+      public string Title;
 
-        public EventHandler<DialogClickEventArgs> Action;
+      /// <summary>
+      /// The event to be invoked when clicking the button.
+      /// </summary>
+      public EventHandler<DialogClickEventArgs> Action;
 
-        /// <summary>
-        /// A container for a button displayed on an alert.
-        /// </summary>
-        /// <param name="title">The title of the button.</param>
-        /// <param name="action">The method to call on click.</param>
-        public DialogButton(string title, EventHandler<DialogClickEventArgs> action)
-        {
-            this.Title = title;
-            this.Action = action;
-        }
-    }
+      /// <summary>
+      /// A container for a button displayed on an alert.
+      /// </summary>
+      /// <param name="title">The title of the button.</param>
+      /// <param name="action">The method to invoke on click.</param>
+      public DialogButton(string title, EventHandler<DialogClickEventArgs> action = null)
+      {
+         this.Title = title;
+         this.Action = action;
+      }
+   }
 }
