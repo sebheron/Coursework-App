@@ -30,6 +30,9 @@ namespace CSC20038.Handlers
       {
          string dir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.Personal);
          Directory.CreateDirectory(dir);
+         //For my database implementation I'm using an SQLite implementation which works efficiently with C#.
+         //This allows for easier adding of columns due to everything being attributed to the model.
+         //It also allows for easy access to items with Linq statements.
          this.database = new SQLiteConnection(DB_PATH);
          this.database.CreateTable<LocationModel>();
       }
@@ -92,6 +95,16 @@ namespace CSC20038.Handlers
       public void Delete(LocationModel locationModel)
       {
          this.database.Delete(locationModel);
+      }
+
+      /// <summary>
+      /// Clear the databse.
+      /// </summary>
+      public void Clear()
+      {
+         //Drop the database table and create a new table.
+         this.database.DropTable<LocationModel>();
+         this.database.CreateTable<LocationModel>();
       }
 
       /// <summary>

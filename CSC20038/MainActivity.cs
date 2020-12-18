@@ -12,12 +12,19 @@ using CSC20038.Classes;
 using CSC20038.Handlers;
 using System.Collections.Generic;
 using CSC20038.Adapters;
+using Android.Views;
+using System.Linq;
 
 namespace CSC20038
 {
-   [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
+   [Activity(Label = "@string/main_name", MainLauncher = true)]
    public class MainActivity : AppCompatActivity, ILocationListener
    {
+      /// <summary>
+      /// Set according to whether the user is editing or not.
+      /// </summary>
+      private bool editing;
+
       /// <summary>
       /// The location manager for the application.
       /// </summary>
@@ -70,68 +77,161 @@ namespace CSC20038
          //Initialize the essentials with Androids activity and bundle.
          Xamarin.Essentials.Platform.Init(this, savedInstanceState);
 
+         //Create the dialog handler.
+         this.dialogHandler = new DialogHandler(this);
+
          //Set the context view to the main view.
          this.SetContentView(Resource.Layout.activity_main);
 
-         //Setup the permissions required for running.
-         this.SetupPermissions();
+         //Set the tool bar.
+         this.SetSupportActionBar(FindViewById<Android.Support.V7.Widget.Toolbar>(Resource.Id.toolbar));
 
-         //Create the alert builder.
-         this.dialogHandler = new DialogHandler(this);
+         //From here on in we need permissions so we need to check and see if we have them.
+         //If we do we'll continue, if not we'll wait until the permissions have been resolved.
+         if (this.CheckPermissions())
+         {
+            //Create the location database handler.
+            this.locationDatabaseHandler = new LocationDatabaseHandler();
 
-         //Create the location database handler.
-         this.locationDatabaseHandler = new LocationDatabaseHandler();
+            //Setup the location manager.
+            this.SetupLocationManager();
 
-         //Setup the location manager.
-         this.SetupLocationManager();
-
-         //Setup the buttons.
-         this.SetupButtons();
-
-         //Setup the list view.
-         this.SetupListView();
+            //Setup the list view.
+            this.SetupListView();
+         }
       }
 
       /// <summary>
-      /// Setup the permissions for the application.
+      /// Creates the options menu.
       /// </summary>
-      private void SetupPermissions()
+      /// <param name="menu">The menu.</param>
+      /// <returns>Success</returns>
+      public override bool OnCreateOptionsMenu(IMenu menu)
+      {
+         this.MenuInflater.Inflate(Resource.Menu.menu_main, menu);
+         return true;
+      }
+
+      /// <summary>
+      /// When an option is selected.
+      /// </summary>
+      /// <param name="item">The menu item selected.</param>
+      /// <returns></returns>
+      public override bool OnOptionsItemSelected(IMenuItem item)
+      {
+         switch (item.ItemId)
+         {
+            case Resource.Id.add_location:
+               this.AddLocation();
+               return true;
+            case Resource.Id.clear_location:
+               this.CheckDeleteAll();
+               return true;
+         }
+         return base.OnOptionsItemSelected(item);
+      }
+
+      /// <summary>
+      /// After the permissions result has been determined.
+      /// </summary>
+      /// <param name="requestCode">Request code.</param>
+      /// <param name="permissions">Permissions requested.</param>
+      /// <param name="grantResults">Grant results.</param>
+      public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
+      {
+         Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+         base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+
+         //Create a new list for unaccepted permissions.
+         var unacceptedPermissions = new List<string>();
+
+         //Loop through the permissions.
+         for (int i = 0; i < permissions.Length; i++)
+         {
+            //If a permission has been denied.
+            if (grantResults[i] == Permission.Denied)
+            {
+               //We'll add it to the unaccepted list so we can ask again.
+               unacceptedPermissions.Add(permissions[i]);
+            }
+         }
+
+         //If we've no permissions left to request
+         if (unacceptedPermissions.Count <= 0)
+         {
+            //Create the location database handler.
+            this.locationDatabaseHandler = new LocationDatabaseHandler();
+
+            //Setup the location manager.
+            this.SetupLocationManager();
+
+            //Setup the list view.
+            this.SetupListView();
+
+            //Return and do nothing.
+            return;
+         }
+
+         //Format a display string to show the user.
+         var message = Resources.GetString(Resource.String.android_permissions_denied)
+            + string.Format(Resources.GetString(Resource.String.android_permissions_request),
+            string.Join("\n", unacceptedPermissions.Select(x => x.Split(".")[2])));
+
+         //Display a dialog notifying the user we'll be asking for permissions. And then request them.
+         this.dialogHandler.ShowInertAlert(Resources.GetString(Resource.String.missing_permissions_title), message,
+            (s, e) => this.RequestPermissions(unacceptedPermissions.ToArray(), 0),
+            new DialogButton(Resources.GetString(Resource.String.exit_button_title), CloseApp));   
+      }
+
+      /// <summary>
+      /// Check we have the permissions required.
+      /// </summary>
+      private bool CheckPermissions()
       {
          //We'll get the permissions by creating a permissions list and then asking for the permissions all at once.
          var permissions = new List<string>();
          //This works by checking to see if we have the permission we require.
-         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessFineLocation) != Permission.Granted)
+         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessFineLocation) == Permission.Denied)
          {
             //And if not we'll add it to the requests.
             permissions.Add(Manifest.Permission.AccessFineLocation);
          }
-         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessCoarseLocation) != Permission.Granted)
+         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessCoarseLocation) == Permission.Denied)
          {
             permissions.Add(Manifest.Permission.AccessCoarseLocation);
          }
-         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.ReadExternalStorage) != Permission.Granted)
+         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.ReadExternalStorage) == Permission.Denied)
          {
             permissions.Add(Manifest.Permission.ReadExternalStorage);
          }
-         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.WriteExternalStorage) != Permission.Granted)
+         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.WriteExternalStorage) == Permission.Denied)
          {
             permissions.Add(Manifest.Permission.WriteExternalStorage);
          }
-         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessWifiState) != Permission.Granted)
+         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessWifiState) == Permission.Denied)
          {
             permissions.Add(Manifest.Permission.AccessWifiState);
          }
-         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessNetworkState) != Permission.Granted)
+         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessNetworkState) == Permission.Denied)
          {
             permissions.Add(Manifest.Permission.AccessNetworkState);
          }
 
-         //If any permissions are required.
+         //Check to see if we have any permissions to request.
          if (permissions.Count > 0)
          {
-            //Then request the permissions.
-            this.RequestPermissions(permissions.ToArray(), 1);
+            //Format a display string to show the user.
+            var message = string.Format(Resources.GetString(Resource.String.android_permissions_request), string.Join("\n", permissions.Select(x => x.Split(".")[2])));
+
+            //Display a dialog notifying the user we'll be asking for permissions. And then request them.
+            this.dialogHandler.ShowInertAlert(Resources.GetString(Resource.String.missing_permissions_title), message,
+               (s, e) => this.RequestPermissions(permissions.ToArray(), 0));
+
+            //Return false as permissions were requested.
+            return false;
          }
+         //Return true as no permissions were requested.
+         return true;
       }
 
       /// <summary>
@@ -139,37 +239,25 @@ namespace CSC20038
       /// </summary>
       private void SetupLocationManager()
       {
-         //Check to see if we have location permission
-         if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessFineLocation) == Permission.Granted)
+         //Get the location manager.
+         var locationManager = this.GetSystemService(Context.LocationService) as LocationManager;
+
+         //If the location manager exists.
+         if (locationManager != null)
          {
-            //And then get the location manager.
-            var locationManager = this.GetSystemService(Context.LocationService) as LocationManager;
+            //Assign the location manager.
+            this.locationManager = locationManager;
 
-            //If the location manager exists.
-            if (locationManager != null)
-            {
-               //Assign the location manager.
-               this.locationManager = locationManager;
+            //Create the provider handler.
+            this.locationProviderHandler = new LocationProviderHandler(this.locationManager);
 
-               //Create the provider handler.
-               this.locationProviderHandler = new LocationProviderHandler(this.locationManager);
-
-               //Setup the location provider.
-               this.SetupLocationProvider();
-            }
-            else
-            {
-               //If it doesn't exist.
-               throw new System.Exception("Location manager does not exist/is inaccessibile.");
-            }
+            //Setup the location provider.
+            this.SetupLocationProvider();
          }
          else
          {
-            //Tell the user we don't have location permissions and need access.
-            this.dialogHandler.ShowAlert(Resources.GetString(Resource.String.missing_location_permissions_title),
-                Resources.GetString(Resource.String.missing_location_permissions_message),
-                new DialogButton(Resources.GetString(Resource.String.close_button_title), CloseApp));
-            ;
+            //If it doesn't exist.
+            throw new System.Exception("Location manager does not exist/is inaccessibile.");
          }
       }
 
@@ -187,7 +275,8 @@ namespace CSC20038
             //Tell the user there's no providers available.
             this.dialogHandler.ShowAlert(Resources.GetString(Resource.String.no_location_provider_title),
                 Resources.GetString(Resource.String.no_location_provider_message),
-                new DialogButton(Resources.GetString(Resource.String.close_button_title), CloseApp));
+               new DialogButton(Resources.GetString(Resource.String.exit_button_title), CloseApp),
+               new DialogButton(Resources.GetString(Resource.String.ok_button_title), (s, e) => this.SetupLocationManager()));
          }
          else
          {
@@ -220,6 +309,9 @@ namespace CSC20038
          listView.ItemClick += SelectLocation;
       }
 
+      /// <summary>
+      /// Reset the list, this acts as a refresh to show deletions and additions.
+      /// </summary>
       private void ResetList()
       {
          //Clear the list
@@ -233,28 +325,6 @@ namespace CSC20038
          {
             this.locationModels.Add(locationModel);
          }
-      }
-
-      /// <summary>
-      /// Setup the buttons for the main layout.
-      /// </summary>
-      private void SetupButtons()
-      {
-         //Setup the buttons.
-         FindViewById<Button>(Resource.Id.addButton).Click += AddLocation;
-      }
-
-      /// <summary>
-      /// After the permissions result has been determined.
-      /// </summary>
-      /// <param name="requestCode">Request code.</param>
-      /// <param name="permissions">Permissions requested.</param>
-      /// <param name="grantResults">Grant results.</param>
-      public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
-      {
-         Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-
-         base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
       }
 
       /// <summary>
@@ -321,20 +391,44 @@ namespace CSC20038
       /// <summary>
       /// Add a new location to the list.
       /// </summary>
-      /// <param name="sender">Sender.</param>
-      /// <param name="e">Event args.</param>
-      private void AddLocation(object sender, System.EventArgs e)
+      private void AddLocation()
       {
          //Create a new location model with the title set to default and the longitude, latitude and altitude all set tot their respecitve values.
          var locationModel = new LocationModel
          {
-            Title = "New Location",
+            Title = Resources.GetString(Resource.String.title_default),
             Longitude = currentLocation.Longitude,
             Latitude = currentLocation.Latitude,
             Altitude = currentLocation.Altitude
          };
+         //Add the location model to the database.
+         this.locationDatabaseHandler.Insert(locationModel);
          //Once we've created the item we'll open it for editing.
          this.OpenEdit(locationModel);
+      }
+
+      /// <summary>
+      /// Checks to see if the user wants to delete all.
+      /// </summary>
+      private void CheckDeleteAll()
+      {
+         //Show a Yes/No dialog and set the callback for Yes to be the delete all method.
+         this.dialogHandler.ShowAlert(Resources.GetString(Resource.String.delete_title),
+             Resources.GetString(Resource.String.delete_all_message),
+             new DialogButton(Resources.GetString(Resource.String.no_button_title)),
+             new DialogButton(Resources.GetString(Resource.String.yes_button_title), (s, e) => this.DeleteAll()));
+      }
+
+      /// <summary>
+      /// Deletes all stored location models.
+      /// </summary>
+      private void DeleteAll()
+      {
+         //Clear the database.
+         this.locationDatabaseHandler.Clear();
+         //Reset the list.
+         this.ResetList();
+         this.locationListAdapter.NotifyDataSetChanged();
       }
 
       /// <summary>
@@ -347,22 +441,21 @@ namespace CSC20038
          //Get the selected location model.
          var locationModel = this.locationModels[e.Position];
          //Open the settings for it.
-         this.OpenItemSettings(locationModel);
+         this.ShowLocation(locationModel);
       }
 
       /// <summary>
-      /// Open the settings for the location model.
+      /// Shows the location and gives the option to edit.
       /// </summary>
-      /// <param name="locationModel">The location model to open.</param>
-      private void OpenItemSettings(LocationModel locationModel)
+      /// <param name="locationModel">The location to show.</param>
+      public void ShowLocation(LocationModel locationModel)
       {
-         //Show the settings dialog.
-         //This dialog shows the selected item and offers, delete, edit and back options.
-         this.dialogHandler.ShowAlert("Settings",
-            locationModel.ToString(),
-            new DialogButton("Delete", (s, e) => DeleteLocationModel(locationModel)),
-            new DialogButton("Edit", (s, e) => OpenEdit(locationModel)),
-            new DialogButton("Back"));
+         //We'll use a dialog to display an item.
+         this.dialogHandler.ShowAlert(locationModel.Title,
+             locationModel.ToString(),
+             new DialogButton(Resources.GetString(Resource.String.item_options_close)),
+             null,
+             new DialogButton(Resources.GetString(Resource.String.item_options_edit), (s, e) => OpenEdit(locationModel)));
       }
 
       /// <summary>
@@ -371,8 +464,12 @@ namespace CSC20038
       /// <param name="locationModel">The location model to edit.</param>
       public void OpenEdit(LocationModel locationModel)
       {
+         //Check if editing, if not set accordingly.
+         //We do this to prevent multiple edit windows being opened.
+         if (editing) return;
+         editing = true;
          //Create a new intent for displaying.
-         Intent intent = new Intent(this, typeof(DisplayLocationActivity));
+         Intent intent = new Intent(this, typeof(ItemActivity));
          //Put the ID for the location as an extra.
          intent.PutExtra("ID", locationModel.ID);
          //Start the activity.
@@ -390,23 +487,9 @@ namespace CSC20038
          //If we get request code 0.
          if (requestCode == 0)
          {
+            //We're no longer editing.
+            editing = false;
             //Reset the list.
-            this.ResetList();
-            this.locationListAdapter.NotifyDataSetChanged();
-         }
-      }
-
-      /// <summary>
-      /// Delete a location model from the stored locations.
-      /// </summary>
-      /// <param name="locationModel">THe location model to delete.</param>
-      public void DeleteLocationModel(LocationModel locationModel)
-      {
-         //Check the location model still exists.
-         if (this.locationModels.Contains(locationModel))
-         {
-            //Delete it and reset the list.
-            this.locationDatabaseHandler.Delete(locationModel);
             this.ResetList();
             this.locationListAdapter.NotifyDataSetChanged();
          }

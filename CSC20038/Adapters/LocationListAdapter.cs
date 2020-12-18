@@ -28,27 +28,47 @@ namespace CSC20038.Adapters
          this.items = items;
       }
 
+      /// <summary>
+      /// Get the item id at the position.
+      /// </summary>
+      /// <param name="position"></param>
+      /// <returns></returns>
       public override long GetItemId(int position)
       {
-         return position;
+         return this.items[position].ID;
       }
 
+      /// <summary>
+      /// Get the item at the position.
+      /// </summary>
+      /// <param name="position">The requested position.</param>
+      /// <returns>The item at the position.</returns>
       public override string this[int position]
       {
-         get { return items[position].ToString(); }
+         get { return items[position].Title; }
       }
 
+      /// <summary>
+      /// Gets the total number of items.
+      /// </summary>
       public override int Count
       {
          get { return items.Count; }
       }
 
+      /// <summary>
+      /// Gets the view for the listview item.
+      /// </summary>
+      /// <param name="position">The requested position.</param>
+      /// <param name="convertView">The view for the item.</param>
+      /// <param name="parent">The parent group.</param>
+      /// <returns></returns>
       public override View GetView(int position, View convertView, ViewGroup parent)
       {
          View view = convertView;
          if (view == null)
             view = context.LayoutInflater.Inflate(Android.Resource.Layout.SimpleListItem1, null);
-         view.FindViewById<TextView>(Android.Resource.Id.Text1).Text = items[position].ToString();
+         view.FindViewById<TextView>(Android.Resource.Id.Text1).Text = this[position];
          return view;
       }
    }

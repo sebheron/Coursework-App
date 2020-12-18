@@ -42,12 +42,18 @@ namespace CSC20038.Classes
       public double Altitude { get; set; }
 
       /// <summary>
+      /// Is the location newly created.
+      /// </summary>
+      [Column("new")]
+      public bool New { get; set; }
+
+      /// <summary>
       /// Creates a readable format version of a location model.
       /// </summary>
       /// <returns>The readable format location.</returns>
       public override string ToString()
       {
-         return $"{this.Title} at Latitude:{this.Latitude}, Longitude:{this.Longitude}, Altitude:{this.Altitude}";
+         return string.Format("{0}\n\nLatitude: {1}\nLongitude: {2}\nAltitude: {3}", this.Note, this.Latitude, this.Longitude, this.Altitude);
       }
    }
 }
